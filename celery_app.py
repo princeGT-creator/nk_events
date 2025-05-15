@@ -22,7 +22,7 @@ app.conf.update(
     beat_schedule={
         'run-scrape-customer-data-task': {
             'task': 'scrape_customer_data_task',
-            'schedule': crontab(hour=11, minute=22),  # Every day at 15:00
+            'schedule': crontab(hour=14, minute=8),  # Every day at 15:00
         },
         'run-scrape-payment-terms-task': {
             'task': 'scrape_customer_payment_terms',
