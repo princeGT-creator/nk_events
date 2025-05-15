@@ -1,6 +1,7 @@
 from celery_app import app
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -9,8 +10,6 @@ from webdriver_manager.chrome import ChromeDriverManager
 import json
 from rentman_customer import get_customers
 import time
-import tempfile
-import shutil
 
 EMAIL = "informatica@netick.it"
 PASSWORD = "Netickpass13"
@@ -20,23 +19,34 @@ PASSWORD = "Netickpass13"
 def scrape_customer_data_task():
 
     # Set up Selenium WebDriver
-    temp_user_data_dir = tempfile.mkdtemp()
-    options = webdriver.ChromeOptions()
-    options.add_argument(f"--user-data-dir={temp_user_data_dir}")
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option("useAutomationExtension", False)
+    options = Options()
 
-    # Enable headless mode
-    options.add_argument("--headless")  # Runs Chrome in headless mode
-    options.add_argument("--disable-gpu")  # Applicable to Windows
-    options.add_argument("--window-size=1920,1080")  # Optional but recommended for consistent rendering
-    options.add_argument("--no-sandbox")  # Optional, useful for some environments
-    options.add_argument("--disable-dev-shm-usage")  # Helps with memory issues on Linux
+    # Chrome headless and stability options
+    options.add_argument('--headless=new')  # Use the new headless mode
+    options.add_argument('--no-sandbox')   # Needed in many containerized or restricted envs
+    options.add_argument('--disable-dev-shm-usage')  # Avoid /dev/shm issues
+    options.add_argument('--disable-gpu')   # Disable GPU acceleration
+    options.add_argument('--disable-extensions')
+    options.add_argument('--disable-setuid-sandbox')
+    options.add_argument('--remote-debugging-port=9222')  # Optional remote debugging
 
-    service = Service(ChromeDriverManager().install())
+    # Privacy and cache options
+    options.add_argument('--incognito')
+    options.add_argument('--disable-application-cache')
+    options.add_argument('--enable-do-not-track')
+    options.add_argument('--disable-popup-blocking')
+
+    # Explicit binary location
+    options.binary_location = '/usr/bin/chromium-browser'
+
+    # Path to chromedriver executable
+    service = Service('/usr/bin/chromedriver')
+
+    # Initialize WebDriver
     driver = webdriver.Chrome(service=service, options=options)
 
     try:
+
         def scrape_billing_address(customer_id):
             details_url = f"https://netick.rentmanapp.com/#/contacts/{customer_id}/details"
             driver.get(details_url)
@@ -276,8 +286,9 @@ def scrape_customer_data_task():
             print("✅ Data scraping complete! Results saved to 'customer_details.json'.")
             return
 
+        else:
+            print("❌ Login URL not found!")
+
     finally:
         driver.quit()
-        shutil.rmtree(temp_user_data_dir, ignore_errors=True)
-        print(f"🧹 Removed temporary user data directory: {temp_user_data_dir}")
 # scrape_customer_data_task.delay()
