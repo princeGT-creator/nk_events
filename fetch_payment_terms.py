@@ -23,6 +23,21 @@ PASSWORD = "Netickpass13"
 
 @app.task(name='scrape_customer_payment_terms')
 def scrape_customer_payment_terms():
+    # Set up logging
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+
+    # Console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+
+    # Formatter
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    console_handler.setFormatter(formatter)
+
+    # Add handler to logger
+    if not logger.hasHandlers():  # Prevent duplicate handlers on reloads
+        logger.addHandler(console_handler)
 
     # Set up Selenium WebDriver
     options = Options()
