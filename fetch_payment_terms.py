@@ -51,6 +51,11 @@ def scrape_customer_payment_terms():
     # Initialize WebDriver
     driver = webdriver.Chrome(service=service, options=options)
 
+    # Open Rentman homepage
+    driver.get("https://rentman.io")
+    logger.info("Opened Rentman homepage.")
+
+
     try:
         # Set up logging
         logger = logging.getLogger(__name__)
@@ -124,112 +129,104 @@ def scrape_customer_payment_terms():
                 return None
 
 
+        # Click the menu button (if needed)
         try:
-            # Open Rentman homepage
-            driver.get("https://rentman.io")
-            logger.info("Opened Rentman homepage.")
+            menu_button = WebDriverWait(driver, 5).until(
+                EC.element_to_be_clickable((By.CLASS_NAME, "c-overlay-menu__toggle"))
+            )
+            menu_button.click()
+            print("✅ Menu button clicked!")
+        except Exception:
+            print("⚠️ No menu button found, skipping...")
 
-            # Click the menu button (if needed)
-            try:
-                menu_button = WebDriverWait(driver, 5).until(
-                    EC.element_to_be_clickable((By.CLASS_NAME, "c-overlay-menu__toggle"))
-                )
-                menu_button.click()
-                logger.info("Menu button clicked.")
-            except Exception:
-                logger.warning("No menu button found, skipping...")
+        # Find the Login button and extract its URL
+        try:
+            login_button = WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.LINK_TEXT, "Login"))
+            )
+            login_url = login_button.get_attribute("href")
+        except Exception:
+            print("❌ Could not find Login button!")
+            login_url = None
 
-            # Find the Login button and extract its URL
-            try:
-                login_button = WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((By.LINK_TEXT, "Login"))
-                )
-                login_url = login_button.get_attribute("href")
-            except Exception:
-                logger.error("Could not find Login button.")
-                login_url = None
+        if login_url:
+            print(f"🔗 Extracted Login URL: {login_url}")
+            driver.get(login_url)
+            WebDriverWait(driver, 10).until(EC.url_contains("rentmanapp.com/login"))
+            print("✅ Successfully navigated to:", driver.current_url)
 
-            if login_url:
-                logger.info(f"Extracted login URL: {login_url}")
-                driver.get(login_url)
-                WebDriverWait(driver, 10).until(EC.url_contains("rentmanapp.com/login"))
-                logger.info(f"Successfully navigated to: {driver.current_url}")
+            # Wait for email and password fields
+            email_input = WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.ID, "email"))
+            )
+            password_input = driver.find_element(By.ID, "password")
 
-                # Wait for email and password fields
-                email_input = WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((By.ID, "email"))
-                )
-                password_input = driver.find_element(By.ID, "password")
+            # Enter login credentials
+            email_input.send_keys(EMAIL)
+            password_input.send_keys(PASSWORD)
+            print("✅ Entered email and password.")
 
-                # Enter login credentials
-                email_input.send_keys(EMAIL)
-                password_input.send_keys(PASSWORD)
-                logger.info("Login submitted.")
+            # Click the login button
+            login_button = driver.find_element(By.XPATH, "//button[@type='submit']")
+            login_button.click()
+            print("✅ Login button clicked!")
 
-                # Click the login button
-                login_button = driver.find_element(By.XPATH, "//button[@type='submit']")
-                login_button.click()
-                logger.info("✅ Login button clicked!")
+            # Wait for the organization selection page to load
+            org_card = WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.CLASS_NAME, "account-card"))
+            )
+            print("✅ Organization selection page loaded.")
 
-                # Wait for the organization selection page to load
-                org_card = WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, "account-card"))
-                )
-                logger.info("✅ Organization selection page loaded.")
+            # Hover over the organization card
+            actions = ActionChains(driver)
+            actions.move_to_element(org_card).perform()
+            print("✅ Hovered over the organization card.")
 
-                # Hover over the organization card
-                actions = ActionChains(driver)
-                actions.move_to_element(org_card).perform()
-                logger.info("✅ Hovered over the organization card.")
+            # Click the "Accedi" button
+            accedi_button = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "//div[@class='account-loginbutton']/button"))
+            )
+            accedi_button.click()
+            print("✅ 'Accedi' button clicked! Navigating to the organization dashboard...")
 
-                # Click the "Accedi" button
-                accedi_button = WebDriverWait(driver, 10).until(
-                    EC.element_to_be_clickable((By.XPATH, "//div[@class='account-loginbutton']/button"))
-                )
-                accedi_button.click()
-                logger.info("✅ 'Accedi' button clicked! Navigating to the organization dashboard...")
+            print("⏳ Waiting for the dashboard to fully load before scraping...")
+            time.sleep(12)
+            
+            customers = get_customers()
+            results = []
 
-                logger.info("⏳ Waiting for the dashboard to fully load before scraping...")
-                time.sleep(12)
+            for customer in customers:
+                customer_id = customer["id"]
+                customer_name = customer["name"]
+
+                logger.info(f"🔍 Processing customer: {customer_name} (ID: {customer_id})")
                 
-                customers = get_customers()
-                results = []
+                # Scrape billing date and payment term
+                billing_date = scrape_billing_date(customer_id)
+                payment_term = scrape_payment_terms(customer_id)
 
-                for customer in customers:
-                    customer_id = customer["id"]
-                    customer_name = customer["name"]
+                # billing_date, payment_term = scrape_payment_terms(customer_id)
 
-                    logger.info(f"🔍 Processing customer: {customer_name} (ID: {customer_id})")
-                    
-                    # Scrape billing date and payment term
-                    billing_date = scrape_billing_date(customer_id)
-                    payment_term = scrape_payment_terms(customer_id)
+                # Store in results list
+                results.append({
+                    "id": customer_id,
+                    "name": customer_name,
+                    "billing_date": billing_date,
+                    "payment_term": payment_term
+                })
+                logger.info('results: ', results)
 
-                    # billing_date, payment_term = scrape_payment_terms(customer_id)
+            # Save results to JSON file
+            with open("customer_payment_terms.json", "w", encoding="utf-8") as f:
+                json.dump(results, f, ensure_ascii=False, indent=4)
 
-                    # Store in results list
-                    results.append({
-                        "id": customer_id,
-                        "name": customer_name,
-                        "billing_date": billing_date,
-                        "payment_term": payment_term
-                    })
-                    logger.info('results: ', results)
+            logger.info("✅ Data scraping complete! Results saved to 'customer_payment_terms.json'.")
+            # Close the browser
+            driver.quit()
+            return
 
-                # Save results to JSON file
-                with open("customer_payment_terms.json", "w", encoding="utf-8") as f:
-                    json.dump(results, f, ensure_ascii=False, indent=4)
-
-                logger.info("✅ Data scraping complete! Results saved to 'customer_payment_terms.json'.")
-                # Close the browser
-                driver.quit()
-                return
-
-            else:
-                logger.error("❌ Login URL not found!")
-
-        except Exception as e:
-            logger.exception("⚠️ Error:", e)
+        else:
+            logger.error("❌ Login URL not found!")
     finally:
         driver.quit()
 # scrape_customer_payment_terms.delay()
