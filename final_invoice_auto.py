@@ -502,8 +502,12 @@ def get_fattureincloud_client_default_discount(client_name):
 @app.task(name='final_invoice_auto')
 def main():
     """Main execution function."""
-    projects = get_projects()
-    customers_data = load_customers_from_json()
+    try:
+        projects = get_projects()
+        customers_data = load_customers_from_json()
+    except FileNotFoundError:
+        print("customer_payment_terms.json not found!")
+        return
     grouped_invoices = {}
     second_invoice_data = {} # Dictionary to store second invoice data
 
