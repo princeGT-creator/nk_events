@@ -280,7 +280,12 @@ def extract_id(contact_path):
     return re.search(r'/contacts/(\d+)', contact_path).group(1) if contact_path else None
 
 def load_payment_terms():
+    import os
+    import json
+
     json_path = "customer_payment_terms.json"
+    if not os.path.exists(json_path):
+        raise FileNotFoundError(f"{json_path} not found")
     with open(json_path, "r") as file:
         return {str(entry["id"]): entry for entry in json.load(file)}
 
