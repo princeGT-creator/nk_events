@@ -505,7 +505,7 @@ def get_fattureincloud_client_default_discount(client_name):
 
 
 @app.task(name='final_invoice_auto')
-def main():
+def final_invoice_auto():
     """Main execution function."""
     try:
         projects = get_projects()
