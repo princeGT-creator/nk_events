@@ -10,7 +10,7 @@ app = Celery(
 # Import your tasks to register them
 from fetch_customer import scrape_customer_data_task
 from fetch_payment_terms import scrape_customer_payment_terms
-from final_invoice_auto import main
+from final_invoice_auto import final_invoice_auto
 
 app.conf.update(
     task_serializer='json',
