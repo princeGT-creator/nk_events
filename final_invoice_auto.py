@@ -1358,6 +1358,6 @@ def final_invoice_auto():
                 save_second_invoice_data(second_invoice_entry)
                 # print('second_invoice_entry: ', second_invoice_entry)
                 process_second_invoices()
-        return    
+        # return    
 # if __name__ == "__main__":
 #     main()
