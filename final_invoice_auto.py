@@ -5,7 +5,7 @@ from compare_customers import compare_names
 import json
 from datetime import datetime, timedelta
 import re
-# from celery_app import app
+from celery_app import app
 import calendar
 import os
 from datetime import date
