@@ -5,7 +5,7 @@ from compare_customers import compare_names
 import json
 from datetime import datetime, timedelta
 import re
-from celery_app import app
+# from celery_app import app
 import calendar
 import os
 from datetime import date
@@ -1358,6 +1358,6 @@ def final_invoice_auto():
                 save_second_invoice_data(second_invoice_entry)
                 # print('second_invoice_entry: ', second_invoice_entry)
                 process_second_invoices()
-        return    
+        # return    
 # if __name__ == "__main__":
 #     main()
