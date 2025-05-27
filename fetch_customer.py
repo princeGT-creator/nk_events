@@ -10,6 +10,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 import json
 from rentman_customer import get_customers
 import time
+from selenium.common.exceptions import TimeoutException
 
 EMAIL = "informatica@netick.it"
 PASSWORD = "Netickpass13"
@@ -17,6 +18,7 @@ PASSWORD = "Netickpass13"
 
 @app.task(name='scrape_customer_data_task')
 def scrape_customer_data_task():
+    TARGET_ORGANIZATION = "Nk Events"
 
     # Set up Selenium WebDriver
     options = Options()
@@ -185,6 +187,20 @@ def scrape_customer_data_task():
                 print(f"⚠️ Error fetching Payment Terms for {customer_id}: {e}")
                 return None
 
+        def ensure_logged_in():
+            try:
+                WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.CLASS_NAME, "account-card")))
+                print("⚠️ Re-authenticating...")
+                org_cards = driver.find_elements(By.CLASS_NAME, "account-card")
+                for card in org_cards:
+                    org_name = card.find_element(By.TAG_NAME, "h5").text.strip()
+                    if org_name == TARGET_ORGANIZATION:
+                        ActionChains(driver).move_to_element(card).perform()
+                        card.find_element(By.XPATH, ".//div[@class='account-loginbutton']/button").click()
+                        time.sleep(10)
+                        return
+            except TimeoutException:
+                pass
 
         driver.get("https://rentman.io")
 
@@ -230,25 +246,36 @@ def scrape_customer_data_task():
             login_button.click()
             print("✅ Login button clicked!")
 
-            # Wait for the organization selection page to load
-            org_card = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.CLASS_NAME, "account-card"))
-            )
-            print("✅ Organization selection page loaded.")
+            # # ✅ Now wait and select the right organization
+            # WebDriverWait(driver, 10).until(
+            #     EC.presence_of_all_elements_located((By.CLASS_NAME, "account-card"))
+            # )
+            # org_cards = driver.find_elements(By.CLASS_NAME, "account-card")
 
-            # Hover over the organization card
-            actions = ActionChains(driver)
-            actions.move_to_element(org_card).perform()
-            print("✅ Hovered over the organization card.")
+            # target_found = False
+            # for card in org_cards:
+            #     try:
+            #         title_elem = card.find_element(By.TAG_NAME, "h5")
+            #         org_name = title_elem.text.strip()
+            #         if org_name == TARGET_ORGANIZATION:
+            #             print(f"✅ Found target organization: {org_name}")
+            #             actions = ActionChains(driver)
+            #             actions.move_to_element(card).perform()
 
-            # Click the "Accedi" button
-            accedi_button = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "//div[@class='account-loginbutton']/button"))
-            )
-            accedi_button.click()
-            print("✅ 'Accedi' button clicked! Navigating to the organization dashboard...")
+            #             accedi_btn = card.find_element(By.XPATH, ".//div[@class='account-loginbutton']/button")
+            #             accedi_btn.click()
+            #             print("✅ Clicked 'Accedi' for selected organization.")
+            #             target_found = True
+            #             break
+            #     except Exception as e:
+            #         print(f"⚠️ Error parsing org card: {e}")
+            #         continue
 
-            print("⏳ Waiting for the dashboard to fully load before scraping...")
+            # if not target_found:
+            #     print(f"❌ Target organization '{TARGET_ORGANIZATION}' not found.")
+            #     return
+
+            # print("⏳ Waiting for dashboard to load...")
             time.sleep(12)
             
             customers = get_customers()
@@ -264,6 +291,7 @@ def scrape_customer_data_task():
                 # Scrape billing date and payment term
                 # billing_date = scrape_billing_date(customer_id)
                 # payment_term = scrape_payment_terms(customer_id)
+                ensure_logged_in()
                 address = scrape_billing_address(customer_id)
                 digital_invoicing = scrape_digital_invoicing(customer_id)
 
