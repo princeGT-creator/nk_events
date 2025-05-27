@@ -9,6 +9,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.chrome.options import Options
+from selenium.common.exceptions import TimeoutException
 
 from rentman_customer import get_customers
 import logging
@@ -23,6 +24,7 @@ PASSWORD = "Netickpass13"
 
 @app.task(name='scrape_customer_payment_terms')
 def scrape_customer_payment_terms():
+    TARGET_ORGANIZATION = "Nk Events"
     # Set up logging
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
@@ -65,11 +67,6 @@ def scrape_customer_payment_terms():
 
     # Initialize WebDriver
     driver = webdriver.Chrome(service=service, options=options)
-
-    # Open Rentman homepage
-    driver.get("https://rentman.io")
-    logger.info("Opened Rentman homepage.")
-
 
     try:
         # Set up logging
@@ -143,8 +140,25 @@ def scrape_customer_payment_terms():
                 print(f"⚠️ Error fetching Payment Terms for {customer_id}: {e}")
                 return None
 
-
+        def ensure_logged_in():
+            try:
+                WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.CLASS_NAME, "account-card")))
+                print("⚠️ Re-authenticating...")
+                org_cards = driver.find_elements(By.CLASS_NAME, "account-card")
+                for card in org_cards:
+                    org_name = card.find_element(By.TAG_NAME, "h5").text.strip()
+                    if org_name == TARGET_ORGANIZATION:
+                        ActionChains(driver).move_to_element(card).perform()
+                        card.find_element(By.XPATH, ".//div[@class='account-loginbutton']/button").click()
+                        time.sleep(10)
+                        return
+            except TimeoutException:
+                pass
         # Click the menu button (if needed)
+        # Open Rentman homepage
+        driver.get("https://rentman.io")
+        logger.info("Opened Rentman homepage.")
+
         try:
             menu_button = WebDriverWait(driver, 5).until(
                 EC.element_to_be_clickable((By.CLASS_NAME, "c-overlay-menu__toggle"))
@@ -186,23 +200,23 @@ def scrape_customer_payment_terms():
             login_button.click()
             print("✅ Login button clicked!")
 
-            # Wait for the organization selection page to load
-            org_card = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((By.CLASS_NAME, "account-card"))
-            )
-            print("✅ Organization selection page loaded.")
+            # # Wait for the organization selection page to load
+            # org_card = WebDriverWait(driver, 10).until(
+            #     EC.presence_of_element_located((By.CLASS_NAME, "account-card"))
+            # )
+            # print("✅ Organization selection page loaded.")
 
-            # Hover over the organization card
-            actions = ActionChains(driver)
-            actions.move_to_element(org_card).perform()
-            print("✅ Hovered over the organization card.")
+            # # Hover over the organization card
+            # actions = ActionChains(driver)
+            # actions.move_to_element(org_card).perform()
+            # print("✅ Hovered over the organization card.")
 
-            # Click the "Accedi" button
-            accedi_button = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "//div[@class='account-loginbutton']/button"))
-            )
-            accedi_button.click()
-            print("✅ 'Accedi' button clicked! Navigating to the organization dashboard...")
+            # # Click the "Accedi" button
+            # accedi_button = WebDriverWait(driver, 10).until(
+            #     EC.element_to_be_clickable((By.XPATH, "//div[@class='account-loginbutton']/button"))
+            # )
+            # accedi_button.click()
+            # print("✅ 'Accedi' button clicked! Navigating to the organization dashboard...")
 
             print("⏳ Waiting for the dashboard to fully load before scraping...")
             time.sleep(12)
@@ -217,6 +231,7 @@ def scrape_customer_payment_terms():
                 logger.info(f"🔍 Processing customer: {customer_name} (ID: {customer_id})")
                 
                 # Scrape billing date and payment term
+                ensure_logged_in()
                 billing_date = scrape_billing_date(customer_id)
                 payment_term = scrape_payment_terms(customer_id)
 
